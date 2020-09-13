@@ -4,12 +4,12 @@
 	<groupId>orbartal</groupId>
 	<artifactId>orbartal.gosecure.pulsar</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	
+
 	<parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
         <version>2.3.3.RELEASE</version>
-        <relativePath /> <!-- lookup parent from repository -->
+        <relativePath />
     </parent>
 
     <properties>
@@ -22,17 +22,40 @@
 	      <groupId>org.springframework.boot</groupId>
 	      <artifactId>spring-boot-starter</artifactId>
 	    </dependency>
-
-	    <dependency>
-	      <groupId>org.springframework.boot</groupId>
-	      <artifactId>spring-boot-starter-test</artifactId>
-	      <scope>test</scope>
-	    </dependency>
-	    
 	    <dependency>
 		    <groupId>org.springframework.boot</groupId>
 		    <artifactId>spring-boot-starter-webflux</artifactId>
 		</dependency>
+
+		<!-- Start tests -->
+		<dependency>
+		    <groupId>junit</groupId>
+		    <artifactId>junit</artifactId>
+		</dependency>
+		<dependency>
+		    <groupId>io.projectreactor</groupId>
+		    <artifactId>reactor-test</artifactId>
+		    <scope>test</scope>
+		</dependency>
+		<dependency>
+	      <groupId>org.springframework.boot</groupId>
+	      <artifactId>spring-boot-starter-test</artifactId>
+	      <scope>test</scope>
+	    </dependency>
+		<dependency>
+			<groupId>io.rest-assured</groupId>
+		    <artifactId>rest-assured</artifactId>
+		</dependency>
+		<dependency>
+		    <groupId>org.hamcrest</groupId>
+		    <artifactId>hamcrest-all</artifactId>
+		    <version>1.3</version>
+		</dependency>
+		<dependency>
+		    <groupId>com.fasterxml.jackson.core</groupId>
+		    <artifactId>jackson-databind</artifactId>
+		</dependency>
+		<!-- End test -->
 
 	</dependencies>
 
