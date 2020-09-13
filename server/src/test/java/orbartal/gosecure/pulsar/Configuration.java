@@ -43,26 +43,9 @@ public class Configuration {
 	public String getServerBaseUrl() {
 		return properties.get("server.base.url").toString();
 	}
-	
-	public String getPathToSmallFile() {
-		return getPath("test1.words.s1");
-	}
-	
-	public String getPathToMediumFile() {
-		return getPath("test1.words.m1");
-	}
-	
-	public String getPathToLargeFile() {
-		return getPath("test1.words.l1");
-	}
-	
-	public String getPathToHugeFile() {
-		return getPath("test1.words.h1");
-	}
-	
-	public String getPath(String key) {
-		String filename = properties.get(key).toString();
-		return PATH_TO_FILES + File.separator + filename;
+
+	public String getPulsarServeApiUrl() {
+		return properties.get("pulsar.api.url.port").toString();
 	}
 
 }
