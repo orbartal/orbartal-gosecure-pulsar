@@ -51,8 +51,7 @@ public class MessageControllerTest {
 		PulsarAdmin admin = PulsarAdmin.builder().serviceHttpUrl(pulsarRestApi).build();
 		List<String> topics = admin.topics().getList(PULSAR_NAMESPACE_1);
 		for (String topic : topics) {
-			String[] arr = topic.split("/");
-			String last = arr[arr.length-1];
+			String last = getTopicFromFullName(topic);
 			admin.topics().delete(last);
 		}
 	}
@@ -130,7 +129,7 @@ public class MessageControllerTest {
 	}
 	
 	@Test(timeout = 90 * 1000)
-	public void testManyMessagesAndManyTopicsPulsar() throws JSONException {
+	public void testPulsarManyTopicsWithUniqueConsumerPerTopic() throws JSONException {
 		int size = 10; //number of messages
 		List<String> topics = IntStream.range(0, size).boxed().map(i -> getRandomText()).sorted().collect(Collectors.toList());
 		Map<String, String> valueByTopic = topics.stream().collect(Collectors.toMap(t->t, t->getRandomText()));
@@ -158,9 +157,47 @@ public class MessageControllerTest {
 		}
 	}
 
+	@Test(timeout = 90 * 1000)
+	public void testPulsarManyTopicsWithSameConsumerForAllTopics() throws JSONException {
+		int size = 10; //number of messages
+		List<String> topics = IntStream.range(0, size).boxed().map(i -> getRandomText()).sorted().collect(Collectors.toList());
+		Map<String, String> valueByTopic = topics.stream().collect(Collectors.toMap(t->t, t->getRandomText()));
+		valueByTopic.entrySet().forEach(p -> sendMessage(p.getValue(), p.getKey()));
+		String pulsarApi = Configuration.get().getPulsarBrokerApiUrl();
+		PulsarClient client = null;
+		Consumer<String> consumer = null;
+		try {
+			Map<String, String> actual = new HashMap<>();
+			client = PulsarClient.builder().serviceUrl(pulsarApi).build();
+			consumer = buildConsumer(client, topics);
+			for (int i =0 ; i< size; i++) {
+				Message<String> msg = consumer.receive();
+				consumer.acknowledge(msg);
+				String value = msg.getValue();
+				String topic = getTopicFromFullName(msg.getTopicName());
+				actual.put(topic, value);
+			}
+			Assert.assertEquals(valueByTopic.size(), actual.size());
+			topics.forEach(t->Assert.assertEquals(valueByTopic.get(t), actual.get(t)));
+		} catch (Exception e) {
+			Assert.fail();
+		} finally {
+			closeableUtil.closeQuietly(consumer);
+			closeableUtil.closeQuietly(client);
+		}
+	}
+
 	private Consumer<String> buildConsumer(PulsarClient client, String topic) throws PulsarClientException {
 		return client.newConsumer(Schema.STRING)
 			.topic(topic)
+			.subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
+			.subscriptionType(SubscriptionType.Exclusive)
+			.subscriptionName(SUBSCRIPTION_NAME).subscribe();
+	}
+	
+	private Consumer<String> buildConsumer(PulsarClient client, List<String> topics) throws PulsarClientException {
+		return client.newConsumer(Schema.STRING)
+			.topics(topics)
 			.subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
 			.subscriptionType(SubscriptionType.Exclusive)
 			.subscriptionName(SUBSCRIPTION_NAME).subscribe();
@@ -190,6 +227,12 @@ public class MessageControllerTest {
 
 	private String getRandomText(int length) {
 		return RandomStringUtils.randomAlphabetic(length).toLowerCase();
+	}
+
+	private String getTopicFromFullName(String topic) {
+		String[] arr = topic.split("/");
+		String last = arr[arr.length-1];
+		return last;
 	}
 
 }
