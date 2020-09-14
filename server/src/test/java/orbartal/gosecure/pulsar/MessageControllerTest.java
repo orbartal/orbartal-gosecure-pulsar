@@ -2,7 +2,9 @@
 package orbartal.gosecure.pulsar;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -119,6 +121,35 @@ public class MessageControllerTest {
 			}
 			Assert.assertEquals(values.size(), actual.size());
 			Assert.assertEquals(values, actual.stream().sorted().collect(Collectors.toList()));
+		} catch (Exception e) {
+			Assert.fail();
+		} finally {
+			closeableUtil.closeQuietly(consumer);
+			closeableUtil.closeQuietly(client);
+		}
+	}
+	
+	@Test(timeout = 90 * 1000)
+	public void testManyMessagesAndManyTopicsPulsar() throws JSONException {
+		int size = 10; //number of messages
+		List<String> topics = IntStream.range(0, size).boxed().map(i -> getRandomText()).sorted().collect(Collectors.toList());
+		Map<String, String> valueByTopic = topics.stream().collect(Collectors.toMap(t->t, t->getRandomText()));
+		valueByTopic.entrySet().forEach(p -> sendMessage(p.getValue(), p.getKey()));
+		String pulsarApi = Configuration.get().getPulsarBrokerApiUrl();
+		PulsarClient client = null;
+		Consumer<String> consumer = null;
+		try {
+			Map<String, String> actual = new HashMap<>();
+			client = PulsarClient.builder().serviceUrl(pulsarApi).build();
+			for (String topic : valueByTopic.keySet()) {
+				consumer = buildConsumer(client, topic);
+				Message<String> msg = consumer.receive();
+				consumer.acknowledge(msg);
+				String value = msg.getValue();
+				actual.put(topic, value);
+			}
+			Assert.assertEquals(valueByTopic.size(), actual.size());
+			topics.forEach(t->Assert.assertEquals(valueByTopic.get(t), actual.get(t)));
 		} catch (Exception e) {
 			Assert.fail();
 		} finally {
