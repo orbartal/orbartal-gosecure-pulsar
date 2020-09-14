@@ -10,6 +10,8 @@ import org.apache.pulsar.client.api.Consumer;
 import org.apache.pulsar.client.api.Message;
 import org.apache.pulsar.client.api.PulsarClient;
 import org.apache.pulsar.client.api.Schema;
+import org.apache.pulsar.client.api.SubscriptionInitialPosition;
+import org.apache.pulsar.client.api.SubscriptionType;
 import org.apache.pulsar.common.policies.data.TopicStats;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -88,7 +90,11 @@ public class MessageControllerTest {
 		Consumer<String> consumer = null;
 		try {
 			client = PulsarClient.builder().serviceUrl(Configuration.get().getPulsarBrokerApiUrl()).build();
-			consumer = client.newConsumer(Schema.STRING).topic(topic).subscriptionName(SUBSCRIPTION_NAME).subscribe();
+			consumer = client.newConsumer(Schema.STRING)
+					.topic(topic)
+					.subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
+					.subscriptionType(SubscriptionType.Exclusive)
+					.subscriptionName(SUBSCRIPTION_NAME).subscribe();
 			Message<String> message = consumer.receive();
 			consumer.acknowledge(message);
 			String actual = message.getValue();
