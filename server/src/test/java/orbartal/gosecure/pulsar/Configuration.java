@@ -1,20 +1,11 @@
 package orbartal.gosecure.pulsar;
 
-import java.io.File;
 import java.io.InputStream;
 import java.util.Properties;
 
 public class Configuration {
 
-	private static final String PATH_TO_FILES = getPathToTestFiles();
 	private static final String CONFIG_FILE = "test.config";
-	
-	private static String getPathToTestFiles() {
-		String path = "src/test/resources";
-		File file = new File(path);
-		return file.getAbsolutePath();
-	}
-	
 
 	private Properties properties;
 	private static Configuration instance = new Configuration();
@@ -44,8 +35,12 @@ public class Configuration {
 		return properties.get("server.base.url").toString();
 	}
 
-	public String getPulsarServeApiUrl() {
+	public String getPulsarBrokerApiUrl() {
 		return properties.get("pulsar.api.url.port").toString();
+	}
+	
+	public String getPulsarServeRestApiUrl() {
+		return properties.get("pulsar.api.rest").toString();
 	}
 
 }
