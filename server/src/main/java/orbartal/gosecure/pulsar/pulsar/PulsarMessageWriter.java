@@ -21,7 +21,6 @@ public class PulsarMessageWriter {
 			client = PulsarClient.builder().serviceUrl(serverUrl).build();
 			producer = client.newProducer(Schema.STRING).topic(topic).create();
 			producer.send(value);
-			producer.flush();
 		} catch (Exception e) {
 			throw new RuntimeException();
 		} finally {

@@ -1,7 +1,10 @@
 
 package orbartal.gosecure.pulsar;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.http.HttpStatus;
@@ -9,6 +12,7 @@ import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.api.Consumer;
 import org.apache.pulsar.client.api.Message;
 import org.apache.pulsar.client.api.PulsarClient;
+import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.client.api.SubscriptionInitialPosition;
 import org.apache.pulsar.client.api.SubscriptionType;
@@ -67,11 +71,7 @@ public class MessageControllerTest {
 
 	@Test(timeout = 10000)
 	public void testOneMessageResponse() throws Exception {
-		Response response = RestAssured.given()
-				.contentType(APPLICATION_JSON_VALUE)
-				.body(buildPostBodyAsString("value_1", "topic_1"))
-				.request(Method.POST, API_PATH);
-
+		Response response = sendMessage("value_1", "topic_1");
 		Assert.assertEquals(HttpStatus.SC_OK, response.getStatusCode());
 		Assert.assertNotNull(response.getBody());
 	}
@@ -80,21 +80,12 @@ public class MessageControllerTest {
 	public void testOneMessagePulsar() throws JSONException {
 		String value = getRandomText();
 		String topic = getRandomText();
-
-		RestAssured.given()
-				.contentType(APPLICATION_JSON_VALUE)
-				.body(buildPostBodyAsString(value, topic))
-				.request(Method.POST, API_PATH);
-
+		sendMessage(value, topic);
 		PulsarClient client = null;
 		Consumer<String> consumer = null;
 		try {
-			client = PulsarClient.builder().serviceUrl(Configuration.get().getPulsarBrokerApiUrl()).build();
-			consumer = client.newConsumer(Schema.STRING)
-					.topic(topic)
-					.subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
-					.subscriptionType(SubscriptionType.Exclusive)
-					.subscriptionName(SUBSCRIPTION_NAME).subscribe();
+			client = buildClient();
+			consumer = buildConsumer(client, topic);
 			Message<String> message = consumer.receive();
 			consumer.acknowledge(message);
 			String actual = message.getValue();
@@ -107,15 +98,59 @@ public class MessageControllerTest {
 		}
 	}
 
-	private String buildPostBodyAsString(String topic, String value) throws JSONException {
-		return buildPostBodyAsJson(topic, value).toString();
+	@Test(timeout = 90 * 1000)
+	public void testManyMessagesOneTopicPulsar() throws JSONException {
+		int size = 10; //number of messages
+		List<String> values = IntStream.range(0, size).boxed().map(i -> getRandomText()).sorted().collect(Collectors.toList());
+		String topic = getRandomText();
+		values.forEach(v -> sendMessage(v, topic));
+		String pulsarApi = Configuration.get().getPulsarBrokerApiUrl();
+		PulsarClient client = null;
+		Consumer<String> consumer = null;
+		try {
+			List<String> actual = new ArrayList<>();
+			client = PulsarClient.builder().serviceUrl(pulsarApi).build();
+			consumer = buildConsumer(client, topic);
+			for (int i = 0; i < size; i++) {
+				Message<String> msg = consumer.receive();
+				consumer.acknowledge(msg);
+				String value = msg.getValue();
+				actual.add(value);
+			}
+			Assert.assertEquals(values.size(), actual.size());
+			Assert.assertEquals(values, actual.stream().sorted().collect(Collectors.toList()));
+		} catch (Exception e) {
+			Assert.fail();
+		} finally {
+			closeableUtil.closeQuietly(consumer);
+			closeableUtil.closeQuietly(client);
+		}
 	}
 
-	private JSONObject buildPostBodyAsJson(String topic, String value) throws JSONException {
+	private Consumer<String> buildConsumer(PulsarClient client, String topic) throws PulsarClientException {
+		return client.newConsumer(Schema.STRING)
+			.topic(topic)
+			.subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
+			.subscriptionType(SubscriptionType.Exclusive)
+			.subscriptionName(SUBSCRIPTION_NAME).subscribe();
+	}
+	
+	private Response sendMessage(String value, String topic) {
 		JSONObject requestParams = new JSONObject();
-		requestParams.put("value", topic); 
-		requestParams.put("topic", value);
-		return requestParams;
+		try {
+			requestParams.put("value", value);
+			requestParams.put("topic", topic);
+			return RestAssured.given()
+					.contentType(APPLICATION_JSON_VALUE)
+					.body(requestParams.toString())
+					.request(Method.POST, API_PATH);
+		} catch (JSONException e) {
+			throw new RuntimeException();
+		} 
+	}
+	
+	private PulsarClient buildClient() throws PulsarClientException {
+		return PulsarClient.builder().serviceUrl(Configuration.get().getPulsarBrokerApiUrl()).build();
 	}
 
 	private String getRandomText() {
